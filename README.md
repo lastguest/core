@@ -26,6 +26,10 @@ $ composer require caffeina-core/core
 
 See the [wiki](https://github.com/caffeina-core/core/wiki).
 
+Component documentation:
+
+- [View](docs/View.md) - Template engine with layouts, auto-escaping, stacks, composers, and caching
+
 
 ## Contributing
 

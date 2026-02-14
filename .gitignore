@@ -4,5 +4,6 @@ composer.lock
 vendor
 /docs/*
 !/docs/assets
+!/docs/*.md
 /dist/*
 !/dist/.gitkeep
