@@ -6,7 +6,12 @@
  * Template execution scope providing variable access, template inheritance,
  * output escaping, stacks, and custom helper support.
  *
- * Replaces the old PHPContext with a full-featured template context.
+ * Inside templates, two APIs are available:
+ *   - OOP:       $this->section('content')
+ *   - Functions: section('content')
+ *
+ * Both styles can be mixed freely. The plain functions delegate to the
+ * active Scope instance stored in Scope::$current.
  *
  * @package core
  * @author stefano.azzolini@caffeina.com
@@ -26,11 +31,18 @@ class Scope {
     protected static $helpers = [];
 
     /**
+     * The currently executing scope instance.
+     * Set by View\PHP::render(), used by the global helper functions.
+     *
+     * @var Scope|null
+     */
+    public static $current = null;
+
+    /**
      * Create a new template scope.
      *
      * @param array  $data     The view data (merged globals + local)
      * @param array  $sections Sections inherited from a child template
-     * @param array  $stacks   Stacks inherited from a child template
      */
     public function __construct(array $data = [], array $sections = []) {
         $this->data     = $data;
@@ -110,8 +122,6 @@ class Scope {
 
     /**
      * Declare that this template extends a parent layout.
-     * The parent template will be rendered after the child finishes,
-     * with all captured sections available via yield().
      *
      * @param string $layout  The parent template path
      */
@@ -121,7 +131,6 @@ class Scope {
 
     /**
      * Begin capturing a named section.
-     * Must be paired with endSection().
      *
      * @param string $name
      */
@@ -173,7 +182,6 @@ class Scope {
 
     /**
      * Begin pushing content onto a named stack.
-     * Stacks are global across all templates in a render cycle.
      *
      * @param string $name
      */
@@ -235,7 +243,6 @@ class Scope {
 
     /**
      * Include a sub-template with isolated data (only passed data + globals).
-     * The parent scope's data is NOT inherited.
      *
      * @param  string $template
      * @param  array  $data
@@ -313,3 +320,6 @@ class Scope {
         static::$helpers = [];
     }
 }
+
+// Load global template functions (e(), raw(), section(), yields(), etc.)
+require_once __DIR__ . '/functions.php';

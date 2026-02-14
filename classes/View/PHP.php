@@ -130,6 +130,11 @@ class PHP implements Adapter {
 
         $scope = new Scope($data, $sections);
 
+        // Set active scope for global template functions, preserving any
+        // outer scope (e.g. when rendering includes inside a render).
+        $previousScope = Scope::$current;
+        Scope::$current = $scope;
+
         $template_path = self::$templatePath . trim($template, '/') . static::EXTENSION;
 
         // Execute template in sandbox
@@ -140,6 +145,9 @@ class PHP implements Adapter {
         };
 
         $output = call_user_func($sandbox->bindTo($scope));
+
+        // Restore previous scope
+        Scope::$current = $previousScope;
 
         // If the template declared a parent via extend(), render the parent
         // with all captured sections and stacks flowing upward.

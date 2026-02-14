@@ -131,6 +131,42 @@ class ViewTest extends \PHPUnit\Framework\TestCase {
 			'<?=$this->raw("injected")?>'
 		);
 
+		// ── Function-syntax templates ────────────────────────────
+
+		file_put_contents(self::$TEMPLATE_DIR . '/layouts/fn_main.php', implode('', [
+			'<html>',
+			'<head><?=stack("styles")?></head>',
+			'<body>',
+			'<header><?=yields("header", "Default Header")?></header>',
+			'<main><?=yields("content")?></main>',
+			'</body>',
+			'</html>',
+		]));
+
+		file_put_contents(self::$TEMPLATE_DIR . '/pages/fn_home.php', implode("\n", [
+			'<?php extend("layouts/fn_main") ?>',
+			'<?php section("header") ?>FN Welcome<?php endSection() ?>',
+			'<?php section("content") ?>FN Body<?php endSection() ?>',
+		]));
+
+		file_put_contents(self::$TEMPLATE_DIR . '/pages/fn_stacks.php', implode("\n", [
+			'<?php extend("layouts/fn_main") ?>',
+			'<?php push("styles") ?><link href="fn.css"><?php endPush() ?>',
+			'<?php section("content") ?>FN Stacked<?php endSection() ?>',
+		]));
+
+		file_put_contents(self::$TEMPLATE_DIR . '/fn_escape.php',
+			'<?=e(raw("content"), "url")?>'
+		);
+
+		file_put_contents(self::$TEMPLATE_DIR . '/fn_partial.php',
+			'[<?=partial("components/card", ["title" => "FN Card"])?>]'
+		);
+
+		file_put_contents(self::$TEMPLATE_DIR . '/fn_embed.php',
+			'[<?=embed("special/hello")?>]'
+		);
+
 		// Init View handler
 		View::using(new View\PHP(self::$TEMPLATE_DIR));
 	}
@@ -364,6 +400,51 @@ class ViewTest extends \PHPUnit\Framework\TestCase {
 	public function testCacheChainable() {
 		$view = View::from('test')->cache(3600);
 		$this->assertEquals('TESTIFICATE', (string) $view);
+	}
+
+
+	// ═══════════════════════════════════════════════════════════════
+	// Function Syntax (global template functions)
+	// ═══════════════════════════════════════════════════════════════
+
+	public function testFnInheritance() {
+		$result = (string) View::from('pages/fn_home');
+		$this->assertStringContainsString('<header>FN Welcome</header>', $result);
+		$this->assertStringContainsString('<main>FN Body</main>', $result);
+		$this->assertStringContainsString('<html>', $result);
+	}
+
+	public function testFnStacks() {
+		$result = (string) View::from('pages/fn_stacks');
+		$this->assertStringContainsString('<link href="fn.css">', $result);
+		$this->assertStringContainsString('<main>FN Stacked</main>', $result);
+	}
+
+	public function testFnEscape() {
+		$result = (string) View::from('fn_escape', ['content' => 'hello world']);
+		$this->assertEquals(rawurlencode('hello world'), $result);
+	}
+
+	public function testFnPartialIsolated() {
+		$result = (string) View::from('fn_partial');
+		$this->assertEquals('[<div class="card">FN Card</div>]', $result);
+	}
+
+	public function testFnEmbed() {
+		$result = (string) View::from('fn_embed', ['name' => 'Morty']);
+		$this->assertEquals('[Hello, Morty!]', $result);
+	}
+
+	public function testFnYieldDefaults() {
+		// fn_home doesn't define header's parent default, but does override it.
+		// Test a page that doesn't override header to check defaults.
+		file_put_contents(self::$TEMPLATE_DIR . '/pages/fn_defaults.php', implode("\n", [
+			'<?php extend("layouts/fn_main") ?>',
+			'<?php section("content") ?>Only Content<?php endSection() ?>',
+		]));
+		$result = (string) View::from('pages/fn_defaults');
+		$this->assertStringContainsString('<header>Default Header</header>', $result);
+		$this->assertStringContainsString('<main>Only Content</main>', $result);
 	}
 
 }

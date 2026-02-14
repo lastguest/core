@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $this->yield('title', 'Core View Demo') ?></title>
+    <title><?= yields('title', 'Core View Demo') ?></title>
     <style>
         body { font-family: system-ui, sans-serif; margin: 0; color: #333; }
         header { background: #2d3436; color: white; padding: 1rem 2rem; }
@@ -11,12 +11,12 @@
         main { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
         footer { text-align: center; padding: 2rem; color: #636e72; border-top: 1px solid #dfe6e9; margin-top: 3rem; }
     </style>
-    <?= $this->stack('styles') ?>
+    <?= stack('styles') ?>
 </head>
 <body>
     <header>
         <nav>
-            <strong><?= $this->raw('appName') ?></strong>
+            <strong><?= raw('appName') ?></strong>
             &nbsp;&nbsp;
             <a href="/">Home</a>
             <a href="/about">About</a>
@@ -25,13 +25,13 @@
     </header>
 
     <main>
-        <?= $this->yield('content') ?>
+        <?= yields('content') ?>
     </main>
 
     <footer>
-        <?= $this->yield('footer', '&copy; ' . $this->raw('year') . ' ' . $this->raw('appName')) ?>
+        <?= yields('footer', '&copy; ' . raw('year') . ' ' . raw('appName')) ?>
     </footer>
 
-    <?= $this->stack('scripts') ?>
+    <?= stack('scripts') ?>
 </body>
 </html>

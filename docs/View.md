@@ -7,6 +7,7 @@ The View component is Core's built-in PHP template engine. It provides a safe, p
 - [Quick Start](#quick-start)
 - [Setup](#setup)
 - [Rendering Templates](#rendering-templates)
+- [Template Syntax](#template-syntax)
 - [Variable Access & Auto-Escaping](#variable-access--auto-escaping)
 - [Template Inheritance](#template-inheritance)
 - [Sections & Yields](#sections--yields)
@@ -88,6 +89,35 @@ When `with()` is called multiple times, later calls override earlier values for 
 
 ---
 
+## Template Syntax
+
+Inside templates, two equivalent APIs are available. Both styles can be mixed freely:
+
+| Function syntax | OOP syntax (`$this->`) |
+|-----------------|------------------------|
+| `extend('layouts/main')` | `$this->extend('layouts/main')` |
+| `section('content')` | `$this->section('content')` |
+| `endSection()` | `$this->endSection()` |
+| `yields('content')` | `$this->yield('content')` |
+| `push('scripts')` | `$this->push('scripts')` |
+| `endPush()` | `$this->endPush()` |
+| `stack('scripts')` | `$this->stack('scripts')` |
+| `raw('key')` | `$this->raw('key')` |
+| `e($val, 'url')` | `$this->e($val, 'url')` |
+| `partial('tpl', $data)` | `$this->include('tpl', $data)` |
+| `embed('tpl', $data)` | `$this->embed('tpl', $data)` |
+| `prepend('scripts')` | `$this->prepend('scripts')` |
+| `endPrepend()` | `$this->endPrepend()` |
+
+Two PHP reserved words require different names in the function API:
+
+- `yield` -> `yields()` (PHP reserves `yield` for generators)
+- `include` -> `partial()` (PHP reserves `include` as a language construct)
+
+Variable access always uses `$this->key` (auto-escaped) or `raw('key')` / `$this->raw('key')` (unescaped).
+
+---
+
 ## Variable Access & Auto-Escaping
 
 The View engine is **safe by default**. All string values accessed via `$this->key` are automatically HTML-escaped to prevent XSS attacks.
@@ -95,7 +125,6 @@ The View engine is **safe by default**. All string values accessed via `$this->k
 ### Auto-escaped output (default)
 
 ```php
-<!-- Template: greeting.php -->
 <p>Hello, <?= $this->username ?>!</p>
 ```
 
@@ -110,7 +139,7 @@ If `username` is `<script>alert('xss')</script>`, the output will be:
 When you trust the content (e.g., pre-sanitized HTML), use `raw()`:
 
 ```php
-<div class="content"><?= $this->raw('htmlContent') ?></div>
+<div class="content"><?= raw('htmlContent') ?></div>
 ```
 
 ### Manual escaping with strategies
@@ -118,9 +147,9 @@ When you trust the content (e.g., pre-sanitized HTML), use `raw()`:
 Use `e()` for non-HTML escaping contexts:
 
 ```php
-<a href="?q=<?= $this->e($this->raw('query'), 'url') ?>">Search</a>
-<script>var name = <?= $this->e($this->raw('name'), 'js') ?>;</script>
-<style>content: '<?= $this->e($this->raw('icon'), 'css') ?>';</style>
+<a href="?q=<?= e(raw('query'), 'url') ?>">Search</a>
+<script>var name = <?= e(raw('name'), 'js') ?>;</script>
+<style>content: '<?= e(raw('icon'), 'css') ?>';</style>
 ```
 
 ### Non-string values
@@ -132,8 +161,6 @@ Integers, floats, arrays, and objects pass through without escaping:
 ```
 
 ### Checking if a variable exists
-
-Unlike the old behavior where `isset()` always returned true, the new `View\Scope` provides truthful `isset()` checks:
 
 ```php
 <?php if (isset($this->subtitle)): ?>
@@ -154,23 +181,23 @@ Build layouts with parent/child relationships, similar to Blade's `@extends` or 
 <!DOCTYPE html>
 <html>
 <head>
-    <title><?= $this->yield('title', 'My App') ?></title>
-    <?= $this->stack('styles') ?>
+    <title><?= yields('title', 'My App') ?></title>
+    <?= stack('styles') ?>
 </head>
 <body>
     <header>
-        <?= $this->yield('header', '<nav>Default Nav</nav>') ?>
+        <?= yields('header', '<nav>Default Nav</nav>') ?>
     </header>
 
     <main>
-        <?= $this->yield('content') ?>
+        <?= yields('content') ?>
     </main>
 
     <footer>
-        <?= $this->yield('footer', '&copy; 2024 My App') ?>
+        <?= yields('footer', '&copy; 2024 My App') ?>
     </footer>
 
-    <?= $this->stack('scripts') ?>
+    <?= stack('scripts') ?>
 </body>
 </html>
 ```
@@ -179,22 +206,22 @@ Build layouts with parent/child relationships, similar to Blade's `@extends` or 
 
 `templates/pages/about.php`:
 ```php
-<?php $this->extend('layouts/main') ?>
+<?php extend('layouts/main') ?>
 
-<?php $this->section('title') ?>About Us<?php $this->endSection() ?>
+<?php section('title') ?>About Us<?php endSection() ?>
 
-<?php $this->section('content') ?>
+<?php section('content') ?>
     <h1>About Us</h1>
     <p>Welcome to our about page.</p>
-<?php $this->endSection() ?>
+<?php endSection() ?>
 ```
 
 ### How it works
 
-1. The child template calls `$this->extend('layouts/main')` to declare its parent
-2. Content between `$this->section('name')` and `$this->endSection()` is captured
-3. The parent layout renders, calling `$this->yield('name')` to place sections
-4. Sections not defined by the child use the default value from `yield()`
+1. The child template calls `extend('layouts/main')` to declare its parent
+2. Content between `section('name')` and `endSection()` is captured
+3. The parent layout renders, calling `yields('name')` to place sections
+4. Sections not defined by the child use the default value from `yields()`
 
 ### Multi-level inheritance
 
@@ -202,28 +229,28 @@ Templates can extend other templates that themselves extend a layout:
 
 `templates/layouts/admin.php`:
 ```php
-<?php $this->extend('layouts/main') ?>
+<?php extend('layouts/main') ?>
 
-<?php $this->section('header') ?>
+<?php section('header') ?>
     <nav>Admin Navigation</nav>
-<?php $this->endSection() ?>
+<?php endSection() ?>
 
-<?php $this->section('content') ?>
+<?php section('content') ?>
     <div class="admin-layout">
-        <aside><?= $this->yield('sidebar') ?></aside>
-        <div class="admin-content"><?= $this->yield('admin_content') ?></div>
+        <aside><?= yields('sidebar') ?></aside>
+        <div class="admin-content"><?= yields('admin_content') ?></div>
     </div>
-<?php $this->endSection() ?>
+<?php endSection() ?>
 ```
 
 `templates/admin/dashboard.php`:
 ```php
-<?php $this->extend('layouts/admin') ?>
+<?php extend('layouts/admin') ?>
 
-<?php $this->section('admin_content') ?>
+<?php section('admin_content') ?>
     <h1>Dashboard</h1>
     <p>Welcome back, <?= $this->name ?>!</p>
-<?php $this->endSection() ?>
+<?php endSection() ?>
 ```
 
 This produces a three-level hierarchy: `dashboard` -> `admin layout` -> `main layout`.
@@ -232,25 +259,25 @@ This produces a three-level hierarchy: `dashboard` -> `admin layout` -> `main la
 
 ## Sections & Yields
 
-### `$this->section($name)` / `$this->endSection()`
+### `section($name)` / `endSection()`
 
 Capture a block of HTML to be placed into a layout:
 
 ```php
-<?php $this->section('sidebar') ?>
+<?php section('sidebar') ?>
     <ul>
         <li><a href="/">Home</a></li>
         <li><a href="/about">About</a></li>
     </ul>
-<?php $this->endSection() ?>
+<?php endSection() ?>
 ```
 
-### `$this->yield($name, $default = '')`
+### `yields($name, $default = '')`
 
 Output a section in a layout. If the child didn't define this section, the default is used:
 
 ```php
-<?= $this->yield('sidebar', '<p>No sidebar</p>') ?>
+<?= yields('sidebar', '<p>No sidebar</p>') ?>
 ```
 
 ---
@@ -264,26 +291,26 @@ Stacks allow child templates and included sub-templates to inject CSS and JavaSc
 ```php
 <head>
     <link rel="stylesheet" href="/css/app.css">
-    <?= $this->stack('styles') ?>
+    <?= stack('styles') ?>
 </head>
 <body>
-    <?= $this->yield('content') ?>
+    <?= yields('content') ?>
 
     <script src="/js/app.js"></script>
-    <?= $this->stack('scripts') ?>
+    <?= stack('scripts') ?>
 </body>
 ```
 
 ### Pushing to stacks from child templates
 
 ```php
-<?php $this->push('styles') ?>
+<?php push('styles') ?>
     <link rel="stylesheet" href="/css/dashboard.css">
-<?php $this->endPush() ?>
+<?php endPush() ?>
 
-<?php $this->push('scripts') ?>
+<?php push('scripts') ?>
     <script src="/js/charts.js"></script>
-<?php $this->endPush() ?>
+<?php endPush() ?>
 ```
 
 ### Prepending to stacks
@@ -291,12 +318,12 @@ Stacks allow child templates and included sub-templates to inject CSS and JavaSc
 Use `prepend()` to add content to the beginning of a stack:
 
 ```php
-<?php $this->prepend('scripts') ?>
+<?php prepend('scripts') ?>
     <script src="/js/vendor/jquery.js"></script>
-<?php $this->endPrepend() ?>
+<?php endPrepend() ?>
 ```
 
-Stacks are **global** across the render cycle. An `include()`d sub-template can push to a stack and it will surface in the layout.
+Stacks are **global** across the render cycle. A `partial()`'d sub-template can push to a stack and it will surface in the layout.
 
 ---
 
@@ -304,28 +331,28 @@ Stacks are **global** across the render cycle. An `include()`d sub-template can 
 
 Two ways to compose templates from smaller parts:
 
-### `$this->include($template, $data)` — Isolated
+### `partial($template, $data)` — Isolated
 
 The included template receives **only** the explicitly passed data (plus globals). It does NOT inherit the parent template's variables.
 
 ```php
 <!-- Parent has $this->name = 'Rick' -->
-<?= $this->include('components/card', ['title' => 'My Card']) ?>
+<?= partial('components/card', ['title' => 'My Card']) ?>
 <!-- The card template cannot access 'name', only 'title' -->
 ```
 
-Use `include()` for reusable components that should not depend on context.
+Use `partial()` for reusable components that should not depend on context.
 
-### `$this->embed($template, $data)` — Inheriting
+### `embed($template, $data)` — Inheriting
 
 The embedded template receives the parent's data merged with any overrides.
 
 ```php
 <!-- Parent has $this->name = 'Rick' -->
-<?= $this->embed('partials/sidebar') ?>
+<?= embed('partials/sidebar') ?>
 <!-- sidebar can access 'name' because it inherits parent data -->
 
-<?= $this->embed('partials/sidebar', ['name' => 'Daryl']) ?>
+<?= embed('partials/sidebar', ['name' => 'Daryl']) ?>
 <!-- sidebar sees name='Daryl' (override wins) -->
 ```
 
@@ -361,12 +388,12 @@ View::helpers([
 ### Using helpers in templates
 
 ```php
-<time><?= $this->formatDate($this->raw('created_at'), 'd M Y') ?></time>
-<h1><?= $this->uppercase($this->raw('title')) ?></h1>
-<p><?= $this->truncate($this->raw('body'), 200) ?></p>
+<time><?= $this->formatDate(raw('created_at'), 'd M Y') ?></time>
+<h1><?= $this->uppercase(raw('title')) ?></h1>
+<p><?= $this->truncate(raw('body'), 200) ?></p>
 ```
 
-Helpers receive raw values as arguments, so pass `$this->raw('key')` if you want the unescaped value for processing (e.g., date parsing). The helper's return value is output directly, so escape it yourself if it contains user input.
+Helpers are called via `$this->helperName()` since they are dynamically dispatched methods. Pass `raw('key')` to get the unescaped value for processing (e.g., date parsing).
 
 ---
 
@@ -426,7 +453,7 @@ View::addGlobals([
 In templates:
 
 ```php
-<title><?= $this->raw('appName') ?></title>
+<title><?= raw('appName') ?></title>
 <footer>&copy; <?= $this->year ?></footer>
 ```
 
@@ -501,7 +528,7 @@ Filter::add('core.view.escape.markdown', function ($value) {
 Then use in templates:
 
 ```php
-<?= $this->e($this->raw('content'), 'markdown') ?>
+<?= e(raw('content'), 'markdown') ?>
 ```
 
 ---
@@ -579,9 +606,9 @@ templates/
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title><?= $this->yield('title', 'My Blog') ?></title>
+    <title><?= yields('title', 'My Blog') ?></title>
     <link rel="stylesheet" href="/css/app.css">
-    <?= $this->stack('styles') ?>
+    <?= stack('styles') ?>
 </head>
 <body>
     <nav>
@@ -593,13 +620,13 @@ templates/
     </nav>
 
     <div class="container">
-        <?= $this->yield('content') ?>
+        <?= yields('content') ?>
     </div>
 
     <footer>&copy; <?= $this->year ?> My Blog</footer>
 
     <script src="/js/app.js"></script>
-    <?= $this->stack('scripts') ?>
+    <?= stack('scripts') ?>
 </body>
 </html>
 ```
@@ -607,62 +634,62 @@ templates/
 ### `templates/pages/home.php`
 
 ```php
-<?php $this->extend('layouts/app') ?>
+<?php extend('layouts/app') ?>
 
-<?php $this->section('title') ?>Home - My Blog<?php $this->endSection() ?>
+<?php section('title') ?>Home - My Blog<?php endSection() ?>
 
-<?php $this->section('content') ?>
+<?php section('content') ?>
     <h1>Latest Posts</h1>
 
-    <?php foreach ($this->raw('posts') as $post): ?>
-        <?= $this->include('components/post-card', ['post' => $post]) ?>
+    <?php foreach (raw('posts') as $post): ?>
+        <?= partial('components/post-card', ['post' => $post]) ?>
     <?php endforeach ?>
 
-    <?= $this->include('components/pagination', [
-        'currentPage' => $this->raw('page'),
-        'totalPages'  => $this->raw('totalPages'),
+    <?= partial('components/pagination', [
+        'currentPage' => raw('page'),
+        'totalPages'  => raw('totalPages'),
     ]) ?>
-<?php $this->endSection() ?>
+<?php endSection() ?>
 ```
 
 ### `templates/components/post-card.php`
 
 ```php
 <article class="post-card">
-    <h2><a href="/post/<?= $this->raw('post')['slug'] ?>">
-        <?= $this->raw('post')['title'] ?>
+    <h2><a href="/post/<?= raw('post')['slug'] ?>">
+        <?= raw('post')['title'] ?>
     </a></h2>
-    <time><?= $this->formatDate($this->raw('post')['created_at'], 'M d, Y') ?></time>
-    <p><?= $this->truncate($this->raw('post')['excerpt'], 150) ?></p>
+    <time><?= $this->formatDate(raw('post')['created_at'], 'M d, Y') ?></time>
+    <p><?= $this->truncate(raw('post')['excerpt'], 150) ?></p>
 </article>
 ```
 
 ### `templates/pages/post.php`
 
 ```php
-<?php $this->extend('layouts/app') ?>
+<?php extend('layouts/app') ?>
 
-<?php $this->section('title') ?><?= $this->title ?> - My Blog<?php $this->endSection() ?>
+<?php section('title') ?><?= $this->title ?> - My Blog<?php endSection() ?>
 
-<?php $this->push('styles') ?>
+<?php push('styles') ?>
     <link rel="stylesheet" href="/css/highlight.css">
-<?php $this->endPush() ?>
+<?php endPush() ?>
 
-<?php $this->push('scripts') ?>
+<?php push('scripts') ?>
     <script src="/js/highlight.js"></script>
-<?php $this->endPush() ?>
+<?php endPush() ?>
 
-<?php $this->section('content') ?>
+<?php section('content') ?>
     <article>
         <h1><?= $this->title ?></h1>
-        <time><?= $this->formatDate($this->raw('date'), 'F j, Y') ?></time>
+        <time><?= $this->formatDate(raw('date'), 'F j, Y') ?></time>
         <div class="post-body">
-            <?= $this->raw('body') ?>
+            <?= raw('body') ?>
         </div>
     </article>
 
-    <?= $this->embed('partials/sidebar') ?>
-<?php $this->endSection() ?>
+    <?= embed('partials/sidebar') ?>
+<?php endSection() ?>
 ```
 
 ### Bootstrap code
@@ -742,23 +769,33 @@ Route::get('/post/:slug', function ($slug) {
 | `$view->with($data)` | Assign data to the view |
 | `$view->cache($ttl)` | Cache the rendered output |
 
-### View\Scope (Template Context)
+### Global Template Functions
 
-Available as `$this` inside templates:
+Available as plain functions in any template:
 
-| Method | Description |
-|--------|-------------|
+| Function | Description |
+|----------|-------------|
+| `raw('key')` | Access variable (unescaped) |
+| `e($value, $strategy)` | Manual escape (html/url/js/css) |
+| `extend($layout)` | Declare parent layout |
+| `section($name)` | Begin section capture |
+| `endSection()` | End section capture |
+| `yields($name, $default)` | Output a section |
+| `push($name)` | Begin stack push |
+| `endPush()` | End stack push |
+| `prepend($name)` | Begin stack prepend |
+| `endPrepend()` | End stack prepend |
+| `stack($name)` | Output a stack |
+| `partial($tpl, $data)` | Include template (isolated data) |
+| `embed($tpl, $data)` | Embed template (inherited data) |
+
+### View\Scope (`$this` in templates)
+
+| Property/Method | Description |
+|----------|-------------|
 | `$this->key` | Access variable (auto-escaped) |
 | `$this->raw('key')` | Access variable (unescaped) |
-| `$this->e($value, $strategy)` | Manual escape (html/url/js/css) |
-| `$this->extend($layout)` | Declare parent layout |
-| `$this->section($name)` | Begin section capture |
-| `$this->endSection()` | End section capture |
-| `$this->yield($name, $default)` | Output a section |
-| `$this->push($name)` | Begin stack push |
-| `$this->endPush()` | End stack push |
-| `$this->prepend($name)` | Begin stack prepend |
-| `$this->endPrepend()` | End stack prepend |
-| `$this->stack($name)` | Output a stack |
-| `$this->include($tpl, $data)` | Include template (isolated data) |
-| `$this->embed($tpl, $data)` | Embed template (inherited data) |
+| `$this->e($value, $strategy)` | Manual escape |
+| `$this->helperName(...)` | Call a registered helper |
+| `$this->yield($name, $default)` | Output a section (method name allowed on objects) |
+| `$this->include($tpl, $data)` | Include template (method name allowed on objects) |

@@ -1,13 +1,13 @@
-<?php $this->extend('layouts/main') ?>
+<?php extend('layouts/main') ?>
 
-<?php $this->section('title') ?>Home - <?= $this->raw('appName') ?><?php $this->endSection() ?>
+<?php section('title') ?>Home - <?= raw('appName') ?><?php endSection() ?>
 
-<?php $this->section('content') ?>
+<?php section('content') ?>
     <h1>Welcome to Core View</h1>
     <p>This is the home page rendered with template inheritance.</p>
 
     <h2>Featured Articles</h2>
-    <?php foreach ($this->raw('articles') as $article): ?>
-        <?= $this->include('components/article-card', ['article' => $article]) ?>
+    <?php foreach (raw('articles') as $article): ?>
+        <?= partial('components/article-card', ['article' => $article]) ?>
     <?php endforeach ?>
-<?php $this->endSection() ?>
+<?php endSection() ?>
