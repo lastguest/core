@@ -3,7 +3,15 @@
 /**
  * View\PHP
  *
- * Core\View PHP templates bridge.
+ * Core\View PHP template engine.
+ *
+ * Features:
+ *   - Template inheritance (extend/section/yield)
+ *   - Auto-escaped variable output
+ *   - Stacks for asset injection (push/stack)
+ *   - View composers via Event system
+ *   - Isolated includes and inheriting embeds
+ *   - Custom template helpers
  *
  * @package core
  * @author stefano.azzolini@caffeina.com
@@ -14,61 +22,144 @@ namespace View;
 
 class PHP implements Adapter {
 
-  const EXTENSION = '.php';
+    const EXTENSION = '.php';
 
-  protected static $templatePath,
-                   $globals = [];
+    protected static $templatePath  = '',
+                     $globals       = [],
+                     $composers     = [];
 
-  public function __construct($path=null,$options=[]){
-      self::$templatePath = ($path ? rtrim($path,'/') : __DIR__) . '/';
-  }
+    public function __construct($path = null, $options = []) {
+        self::$templatePath = ($path ? rtrim($path, '/') : __DIR__) . '/';
+    }
 
-  public static function exists($path){
-      return is_file(self::$templatePath . $path . static::EXTENSION);
-  }
+    /**
+     * Check if a template file exists.
+     *
+     * @param  string $path  Template path (without extension)
+     * @return bool
+     */
+    public static function exists($path) {
+        return is_file(self::$templatePath . $path . static::EXTENSION);
+    }
 
-  public static function addGlobal($key,$val){
-    self::$globals[$key] = $val;
-  }
-
-  public static function addGlobals(array $defs){
-    foreach ((array)$defs as $key=>$val) {
+    /**
+     * Register a global variable available in all templates.
+     *
+     * @param string $key
+     * @param mixed  $val
+     */
+    public static function addGlobal($key, $val) {
         self::$globals[$key] = $val;
     }
-  }
 
-  public function render($template, $data=[]){
-      $template_path = self::$templatePath . trim($template,'/') . static::EXTENSION;
-      $sandbox = function() use ($template_path){
-          ob_start();
-          include($template_path);
-          $__buffer__ = ob_get_contents();
-          ob_end_clean();
-          return $__buffer__;
-      };
-      return call_user_func($sandbox->bindTo(new PHPContext(
-          array_merge(self::$globals, $data),
-          self::$templatePath
-      )));
-  }
-}
+    /**
+     * Register multiple global variables.
+     *
+     * @param array $defs  Key-value pairs
+     */
+    public static function addGlobals(array $defs) {
+        foreach ($defs as $key => $val) {
+            self::$globals[$key] = $val;
+        }
+    }
 
-class PHPContext {
-  protected $data = [];
+    /**
+     * Register a custom template helper.
+     *
+     * @param string   $name
+     * @param callable $fn
+     */
+    public static function addHelper($name, callable $fn) {
+        Scope::addHelper($name, $fn);
+    }
 
-  public function __construct($data=[], $path=null){
-      $this->data = $data;
-  }
+    /**
+     * Register multiple template helpers.
+     *
+     * @param array $helpers  Map of name => callable
+     */
+    public static function addHelpers(array $helpers) {
+        Scope::addHelpers($helpers);
+    }
 
-  public function partial($template, $vars=[]){
-      return \View::from($template,array_merge($this->data,$vars));
-  }
+    /**
+     * Register a view composer callback for a template or pattern.
+     *
+     * Composers are called before a template renders, allowing automatic
+     * injection of data. Supports wildcard patterns (e.g. "admin/*").
+     *
+     * @param string   $pattern   Template name or glob pattern
+     * @param callable $callback  Receives &$data by reference
+     */
+    public static function composer($pattern, callable $callback) {
+        self::$composers[] = [$pattern, $callback];
+    }
 
-  public function __isset($n){ return true; }
+    /**
+     * Render a template with data.
+     *
+     * Handles template inheritance by executing child templates first,
+     * then recursively rendering parent layouts with captured sections.
+     *
+     * @param  string $template  Template path (without extension)
+     * @param  array  $data      View data
+     * @param  array  $sections  Sections inherited from child template
+     * @param  bool   $topLevel  Whether this is the top-level render call
+     * @return string
+     */
+    public function render($template, $data = [], $sections = [], $topLevel = true) {
 
-  public function __unset($n){}
+        $data = array_merge(self::$globals, $data);
 
-  public function __get($n){
-    return empty($this->data[$n]) ? '' : $this->data[$n];
-  }
+        // Fire view composers (exact match and wildcard)
+        foreach (self::$composers as list($pattern, $callback)) {
+            if ($pattern === $template || fnmatch($pattern, $template)) {
+                $callback($data);
+            }
+        }
+
+        // Fire event-based composers for exact template match
+        if (class_exists('Event', false)) {
+            \Event::trigger("core.view.compose:{$template}", $data);
+        }
+
+        // Reset stacks at the start of a top-level render
+        if ($topLevel) {
+            Scope::resetStacks();
+        }
+
+        $scope = new Scope($data, $sections);
+
+        // Set active scope for global template functions, preserving any
+        // outer scope (e.g. when rendering includes inside a render).
+        $previousScope = Scope::$current;
+        Scope::$current = $scope;
+
+        $template_path = self::$templatePath . trim($template, '/') . static::EXTENSION;
+
+        // Execute template in sandbox
+        $sandbox = function () use ($template_path) {
+            ob_start();
+            include($template_path);
+            return ob_get_clean();
+        };
+
+        $output = call_user_func($sandbox->bindTo($scope));
+
+        // Restore previous scope
+        Scope::$current = $previousScope;
+
+        // If the template declared a parent via extend(), render the parent
+        // with all captured sections and stacks flowing upward.
+        if ($parent = $scope->getParent()) {
+            return $this->render(
+                $parent,
+                $data,
+                array_merge($sections, $scope->getSections()),
+                false
+            );
+        }
+
+        return $output;
+    }
 }

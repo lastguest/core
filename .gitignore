@@ -1,8 +1,10 @@
 .phpintel
 .DS_Store
+.phpunit.result.cache
 composer.lock
 vendor
 /docs/*
 !/docs/assets
+!/docs/*.md
 /dist/*
 !/dist/.gitkeep
